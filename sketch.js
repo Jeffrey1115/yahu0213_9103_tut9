@@ -1,7 +1,13 @@
+// Define the height and width of the canvas
 let height = 686;
 let width = 676;
 
+// Initialize the scaling factors for x and y
+let xU, yU;
+
+// Initialize an empty array to store rows and columns
 let rows_and_columns = [];
+
 let row1 = {
   color: "#fdeb19",
   width: width,
@@ -2371,7 +2377,7 @@ let column11 = {
     x: 173,
     y: 88,
   };
-  
+
   var r3_1 = {
     color: "#244ec9",
     width: 41,
@@ -2689,54 +2695,168 @@ rows_and_columns.push(r18_1);
 rows_and_columns.push(r19_1);
 rows_and_columns.push(r20_1);
 
+// Initialize empty arrays to store parent and child elements
 let rParents = [];
 let rChildren = [];
 
+// Define the Element class with a constructor and display method
 class Element {
   constructor(x, y, height, width, color) {
+    // (x,y) coordinate and element's width and height and color
     this.x = x;
     this.y = y;
     this.height = height;
     this.width = width;
     this.color = color;
+    this.targetColor = color;
   }
   display() {
+    stroke(0);
+    strokeWeight(1);
     fill(this.color);
     rect(this.x, this.y, this.width, this.height);
   }
+
+  // Change color animation
+  changeColor(newColor) {
+    this.targetColor = newColor;
+  }
+
+  // Animate color change
+  animateColorChange() {
+    let delta = 0.05;
+    let r = red(this.color);
+    let g = green(this.color);
+    let b = blue(this.color);
+    let targetR = red(this.targetColor);
+    let targetG = green(this.targetColor);
+    let targetB = blue(this.targetColor);
+
+    if (r !== targetR) {
+      // Use lerp() to achieve smooth transition
+      r = lerp(r, targetR, delta);
+    }
+    if (g !== targetG) {
+      g = lerp(g, targetG, delta);
+    }
+    if (b !== targetB) {
+      b = lerp(b, targetB, delta);
+    }
+
+    this.color = color(r, g, b);
+  }
 }
 
-function setup() {
-  createCanvas(width, height);
-  background("#fffdf1");
-  noStroke();
-  for (let j = 0; j < rows_and_columns.length; j++) {
-    let square = new Element(
-      rows_and_columns[j].x,
-      rows_and_columns[j].y,
-      rows_and_columns[j].height,
-      rows_and_columns[j].width,
-      rows_and_columns[j].color
-    );
-    square.display();
-    rParents.push(square);
-    if (rows_and_columns[j].hasOwnProperty("childrens")) {
-      let child = rows_and_columns[j].childrens;
-      for (let i = 0; i < child.length; i++) {
-        let square2 = new Element(
-          child[i].x,
-          child[i].y,
-          child[i].height,
-          child[i].width,
-          child[i].color
-        );
-        square2.display();
-        rChildren.push(square2);
-      }
+let squares = []; // Array to hold squares for animation
+let interval;
+let draggedElement = null; // Variable to keep track of the square being dragged
+
+function mousePressed() {
+  // Check if mouse is pressed inside any of the children squares
+  for (let i = squares.length - 1; i >= 0; i--) {
+    let square = squares[i];
+    if (
+      mouseX >= square.x &&
+      mouseX <= square.x + square.width &&
+      mouseY >= square.y &&
+      mouseY <= square.y + square.height
+    ) {
+      draggedElement = square; // Set the dragged square
+      break;
+    }
+  }
+
+  // If a square is being dragged, move it to the end of the array to ensure it's on top
+  if (draggedElement !== null) {
+    let index = squares.indexOf(draggedElement);
+    if (index !== -1) {
+      squares.splice(index, 1); // Remove the dragged square from its current position
+      squares.push(draggedElement); // Add the dragged square to the end of the array
     }
   }
 }
 
-function draw() {}
+function mouseReleased() {
+  draggedElement = null; // Reset dragged square when mouse is released
+}
 
+function setup() {
+  // Calculate the width and height after scaling before drawing
+  initWH();
+  // Clear interval before setup
+  clearInterval(interval);
+  createCanvas(width, height);
+  background("#fffdf1");
+  noStroke();
+  // Iterate through the rows_and_columns array and create Element instances
+  for (let j = 0; j < rows_and_columns.length; j++) {
+    let square = new Element(
+      rows_and_columns[j].x * xU,
+      rows_and_columns[j].y * yU,
+      rows_and_columns[j].height * yU,
+      rows_and_columns[j].width * xU,
+      rows_and_columns[j].color
+    );
+    square.display();
+    squares.push(square); // Add square to animation array
+    if (rows_and_columns[j].hasOwnProperty("childrens")) {
+      let child = rows_and_columns[j].childrens;
+      for (let i = 0; i < child.length; i++) {
+        let square2 = new Element(
+          child[i].x * xU,
+          child[i].y * yU,
+          child[i].height * yU,
+          child[i].width * xU,
+          child[i].color
+        );
+        square2.display();
+        squares.push(square2); // Add square to animation array
+      }
+    }
+  }
+
+  // Set interval for color change animation
+  interval = setInterval(changeColors, 2000);
+}
+
+function draw() {
+  background("#fffdf1");
+  for (let square of squares) {
+    square.animateColorChange(); 
+    square.display(); 
+  }
+
+  // If a square is being dragged, update its position
+  if (draggedElement !== null) {
+    draggedElement.x = mouseX - draggedElement.width / 2;
+    draggedElement.y = mouseY - draggedElement.height / 2;
+  }
+}
+
+// Function to change colors randomly
+function changeColors() {
+  for (let square of squares) {
+    let newColor = color(random(255), random(255), random(255));
+    square.changeColor(newColor);
+  }
+}
+
+// Define the windowResized function to handle window resizing events
+function windowResized() {
+  setup();
+}
+
+// Define the initWH function to initialize the scaling factors and clear the arrays
+function initWH() {
+  height = windowHeight - 10;
+  width = height * (676 / 686);
+  if (width > windowWidth) {
+    width = windowWidth - 10;
+  }
+  // Calculate the x-axis and y-axis scaling ratio
+  xU = width / 676;
+  yU = height / 686;
+  rParents = [];
+  rChildren = [];
+}
 
